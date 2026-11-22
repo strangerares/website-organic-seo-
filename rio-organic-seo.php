@@ -17,11 +17,41 @@ final class Rio_Organic_SEO {
 
 	public function init(): void {
 		add_action( 'init', array( $this, 'register_outreach_post_type' ) );
+		add_action( 'init', array( $this, 'register_article_meta' ) );
 		add_action( 'admin_menu', array( $this, 'register_admin_page' ) );
 		add_action( 'add_meta_boxes_post', array( $this, 'add_article_meta_box' ) );
 		add_action( 'save_post_post', array( $this, 'save_article_meta' ) );
 		add_action( 'admin_post_rio_seo_generate_article', array( $this, 'generate_article' ) );
 		add_action( 'admin_post_rio_seo_generate_outreach', array( $this, 'generate_outreach' ) );
+	}
+
+	public function register_article_meta(): void {
+		register_post_meta(
+			'post',
+			'_rio_seo_target_keyword',
+			array(
+				'type'              => 'string',
+				'single'            => true,
+				'show_in_rest'      => true,
+				'sanitize_callback' => 'sanitize_text_field',
+				'auth_callback'     => function ( $allowed, $meta_key, $post_id ) {
+					return current_user_can( 'edit_post', $post_id );
+				},
+			)
+		);
+		register_post_meta(
+			'post',
+			'_rio_seo_meta_description',
+			array(
+				'type'              => 'string',
+				'single'            => true,
+				'show_in_rest'      => true,
+				'sanitize_callback' => 'sanitize_textarea_field',
+				'auth_callback'     => function ( $allowed, $meta_key, $post_id ) {
+					return current_user_can( 'edit_post', $post_id );
+				},
+			)
+		);
 	}
 
 	public function register_outreach_post_type(): void {
@@ -81,7 +111,7 @@ final class Rio_Organic_SEO {
 		$keyword     = $this->posted_text( 'rio_seo_target_keyword' );
 		$description = $this->posted_text( 'rio_seo_meta_description', true );
 		update_post_meta( $post_id, '_rio_seo_target_keyword', sanitize_text_field( $keyword ) );
-		update_post_meta( $post_id, '_rio_seo_meta_description', sanitize_textarea_field( $description ) );
+		$this->save_seo_meta_description( $post_id, sanitize_textarea_field( $description ) );
 	}
 
 	public function register_admin_page(): void {
@@ -217,7 +247,7 @@ final class Rio_Organic_SEO {
 		}
 
 		update_post_meta( $post_id, '_rio_seo_target_keyword', $keyword );
-		update_post_meta( $post_id, '_rio_seo_meta_description', sanitize_text_field( $article['meta_description'] ) );
+		$this->save_seo_meta_description( $post_id, sanitize_text_field( $article['meta_description'] ) );
 
 		wp_safe_redirect( add_query_arg( array( 'page' => 'rio-organic-seo', 'article_id' => $post_id ), admin_url( 'tools.php' ) ) );
 		exit;
@@ -345,21 +375,57 @@ final class Rio_Organic_SEO {
 
 		$status = wp_remote_retrieve_response_code( $response );
 		if ( $status < 200 || $status >= 300 ) {
+			if ( 429 === $status ) {
+				wp_die( esc_html__( 'The AI service rate limit was reached. Please wait before trying again.', 'rio-organic-seo' ) );
+			}
+			if ( 401 === $status || 403 === $status ) {
+				wp_die( esc_html__( 'The AI service rejected the configured credentials. Check the API key and permissions.', 'rio-organic-seo' ) );
+			}
+			if ( $status >= 500 ) {
+				wp_die( esc_html__( 'The AI service is temporarily unavailable. Please try again later.', 'rio-organic-seo' ) );
+			}
 			wp_die( esc_html( sprintf( 'The AI service returned HTTP %d. Check the API key, model, and endpoint configuration.', $status ) ) );
 		}
 
 		$decoded = json_decode( wp_remote_retrieve_body( $response ), true );
-		$content = $decoded['choices'][0]['message']['content'] ?? null;
-		if ( ! is_string( $content ) ) {
+		if ( JSON_ERROR_NONE !== json_last_error() || ! is_array( $decoded ) ) {
+			wp_die( esc_html__( 'The AI service returned an unexpected response. Please try again.', 'rio-organic-seo' ) );
+		}
+		if ( isset( $decoded['error'] ) ) {
+			wp_die( esc_html__( 'The AI service reported an error. Check the API configuration and try again.', 'rio-organic-seo' ) );
+		}
+		if (
+			! isset( $decoded['choices'] )
+			|| ! is_array( $decoded['choices'] )
+			|| ! isset( $decoded['choices'][0] )
+			|| ! is_array( $decoded['choices'][0] )
+			|| ! isset( $decoded['choices'][0]['message'] )
+			|| ! is_array( $decoded['choices'][0]['message'] )
+			|| ! isset( $decoded['choices'][0]['message']['content'] )
+			|| ! is_string( $decoded['choices'][0]['message']['content'] )
+		) {
 			wp_die( esc_html__( 'The AI service returned an unexpected response. Please try again.', 'rio-organic-seo' ) );
 		}
 
+		$content = $decoded['choices'][0]['message']['content'];
+
 		$result = json_decode( $content, true );
-		if ( ! is_array( $result ) ) {
+		if ( JSON_ERROR_NONE !== json_last_error() || ! is_array( $result ) ) {
 			wp_die( esc_html__( 'The AI service did not return valid JSON. Please try again.', 'rio-organic-seo' ) );
 		}
 
 		return $result;
+	}
+
+	private function save_seo_meta_description( int $post_id, string $description ): void {
+		update_post_meta( $post_id, '_rio_seo_meta_description', $description );
+
+		if ( defined( 'WPSEO_VERSION' ) ) {
+			update_post_meta( $post_id, '_yoast_wpseo_metadesc', $description );
+		}
+		if ( defined( 'RANK_MATH_VERSION' ) ) {
+			update_post_meta( $post_id, 'rank_math_description', $description );
+		}
 	}
 
 	private function render_success_notice(): void {
