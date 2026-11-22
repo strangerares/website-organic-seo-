@@ -1,233 +1,124 @@
-# Rio Organic SEO — AI-Powered Organic Growth Platform
+# Rio Organic SEO
 
-An evolving SEO automation platform designed to improve the organic search visibility of [Rio Private Driver](https://rioprivatedriver.com), a premium private transportation and tourism service in Rio de Janeiro, Brazil.
+Rio Organic SEO is a small WordPress plugin MVP for preparing AI-assisted article and outreach drafts for [Rio Private Driver](https://rioprivatedriver.com). The repository currently contains the plugin and this README; the planned Python SEO engine has not been started.
 
-The project combines AI-assisted content creation, keyword research, technical SEO auditing, backlink opportunity discovery, image optimization and search performance monitoring.
+Generated material is saved for human review. The plugin does not publish articles, send email, fetch prospect websites, or create backlinks automatically.
 
-The primary target audience is English-speaking international tourists, especially visitors from the United States and Canada.
+## What is implemented
 
-## Project Vision
+The only application source file is [`rio-organic-seo.php`](./rio-organic-seo.php). It declares plugin version 0.1.0, requires WordPress 6.0 or later and PHP 7.4 or later, and uses WordPress APIs without third-party PHP packages.
 
-Build an independent SEO platform that combines the useful capabilities of commercial AI SEO services with automation tailored specifically to Rio Private Driver.
+### Article drafts
 
-The system should help:
+From **Tools → Organic SEO**, a user with the `edit_posts` capability can provide a topic, intended reader, language, verified facts, and an optional URL on the WordPress site. The plugin sends these inputs to a configured chat-completions API and asks for a title, excerpt, body HTML, and meta description. It then:
 
-- Discover valuable commercial search keywords.
-- Analyze competitors and identify content opportunities.
-- Generate original, informative SEO articles.
-- Create and optimize images for website content.
-- Identify legitimate backlink and editorial partnership opportunities.
-- Prepare personalized outreach messages.
-- Publish approved content to WordPress.
-- Monitor Google search performance.
-- Track visibility across supported AI search services.
-- Recommend improvements based on collected data.
+- Creates a standard WordPress post with `draft` status.
+- Stores the excerpt in the normal WordPress excerpt field.
+- Sanitizes generated post HTML with `wp_kses_post()`.
+- Stores the topic and suggested description as `_rio_seo_target_keyword` and `_rio_seo_meta_description` post meta.
 
-The platform must prioritize useful content, genuine business relevance and sustainable organic growth.
+The meta description is stored as data; this plugin does not render it into page HTML or synchronize it with a separate SEO plugin.
 
-## Architecture
+### Outreach drafts
 
-The project is divided into two main components.
+The same admin page accepts a prospect URL, a page on the local site, and a reason for contacting the prospect. It asks the API for a subject and message, then creates a draft of the private `rio_seo_outreach` post type. The draft is available in the WordPress admin under Tools. There is no prospect discovery, site fetching, email delivery, or automated link placement.
 
-### 1. Python SEO Engine
+### Post metadata editor
 
-The central application responsible for research, AI processing, analysis and automation.
+A meta box on standard posts lets editors maintain a target keyword and suggested meta description. Saving these values checks a nonce and the user's `edit_post` capability and sanitizes the submitted values.
 
-Planned modules:
+## Configuration and dependencies
 
-| Module | Purpose |
-|---|---|
-| SEO Auditor | Analyze website structure, metadata, links and technical issues |
-| Keyword Research | Discover keywords, search intent and topic clusters |
-| Competitor Analyzer | Analyze competing websites and content gaps |
-| Article Generator | Generate researched, original SEO articles |
-| Image Manager | Generate or source permitted images and optimize them |
-| Backlink Discovery | Find relevant websites and partnership opportunities |
-| Outreach Manager | Prepare personalized partnership emails |
-| WordPress Connector | Transfer approved content and media to WordPress |
-| Search Performance | Analyze Google Search Console data |
-| AI Visibility Monitor | Monitor mentions and citations in supported AI search services |
-| Reporting | Produce periodic SEO reports and recommendations |
+The plugin has no `composer.json`, Python package manifest, test suite, or runtime dependency beyond WordPress core. Article and outreach generation require access to a compatible external AI API.
 
-### 2. WordPress Integration
-
-The existing Rio Organic SEO PHP plugin acts as the WordPress component.
-
-Its responsibilities include:
-
-- Receiving generated article content.
-- Creating WordPress article drafts.
-- Saving excerpts and SEO metadata.
-- Preparing backlink outreach drafts.
-- Managing content review workflows.
-- Eventually supporting featured image uploads and additional publishing features.
-
-The Python engine should communicate with WordPress through its REST API wherever possible.
-
-A custom PHP plugin should only implement functionality that cannot reasonably be handled through the existing WordPress REST API.
-
-## Current Implementation
-
-### WordPress Plugin MVP
-
-The initial PHP plugin supports:
-
-- Generating original article drafts using an AI API.
-- Accepting topics, intended readers, languages and user-supplied factual notes.
-- Saving articles as WordPress drafts.
-- Saving article excerpts.
-- Saving suggested meta descriptions as `_rio_seo_meta_description`.
-- Generating personalized backlink outreach drafts.
-- Keeping outreach messages as drafts for human review.
-
-The plugin does not automatically publish articles, send emails, scrape prospect websites or place backlinks.
-
-### Current Configuration
-
-Add the following configuration to `wp-config.php`, above the stop-editing line:
+Add configuration to `wp-config.php`, above the stop-editing line:
 
 ```php
 define( 'RIO_SEO_API_KEY', 'your-secret-api-key' );
 define( 'RIO_SEO_API_MODEL', 'gpt-4o-mini' );
 ```
 
-Optional custom API endpoint:
+The default endpoint is `https://api.openai.com/v1/chat/completions`. To use another HTTPS endpoint that accepts the same request and response format:
 
 ```php
-define(
-    'RIO_SEO_API_URL',
-    'https://api.openai.com/v1/chat/completions'
-);
+define( 'RIO_SEO_API_URL', 'https://api.example.com/v1/chat/completions' );
 ```
 
-Keep all API credentials outside the Git repository.
+The implementation expects an OpenAI-compatible chat-completions response with JSON-object output in `choices[0].message.content`. Gemini support has not been implemented or verified. Keep keys out of source control and public output. API usage may incur provider charges; check the selected provider's current pricing and data-handling terms.
 
-The configured provider must support the API request format and JSON-object responses expected by the plugin.
+## Security and known limitations
 
-## Development Roadmap
+Admin generation actions require the `edit_posts` capability and a WordPress nonce. The post metadata editor checks a nonce and per-post edit permission. Submitted article HTML and metadata are sanitized, and generated content is always saved as a draft. A focused static review of the plugin found no confirmed exploitable vulnerabilities; this is not a substitute for testing in a configured WordPress installation or future security reviews. These controls do not establish that AI-generated claims are true: a human must verify facts, links, and quality before publication.
 
-### Phase 1 — Foundation
+The current implementation is a single PHP file, with no automated tests or Python application. It has no crawler, robots.txt or sitemap analysis, SEO audit/report, keyword or competitor research, image pipeline, Google API integration, or WordPress REST API connector. AI requests use a synchronous 60-second HTTP request; there is no retry, rate-limit, queue, or audit-log system. API failures are reported in the admin request, but there is no structured operational logging.
 
-- [x] Initial WordPress article-generation plugin.
-- [x] WordPress article draft creation.
-- [x] SEO metadata storage.
-- [x] Backlink outreach draft generation.
-- [ ] Review existing implementation and improve security.
-- [ ] Establish Python application architecture.
-- [ ] Create configuration and logging systems.
-- [ ] Add automated tests and documentation.
+Before extending the plugin or exposing additional interfaces, preserve these checks and review the new code for security regressions.
 
-### Phase 2 — SEO Research
+## Practical migration plan
 
-- [ ] Website crawler and technical SEO auditor.
-- [ ] Sitemap and robots.txt analysis.
-- [ ] Keyword discovery and classification.
-- [ ] Search intent analysis.
-- [ ] Competitor analysis.
-- [ ] Content gap identification.
-- [ ] Google Search Console integration.
+Keep the existing plugin in place while adding the Python engine incrementally. Do not remove the article, excerpt, metadata, or outreach-draft workflows until an equivalent replacement has been tested. Use the official WordPress REST API for Python-to-WordPress operations wherever it can meet the workflow; add only the small PHP REST/authentication support that the standard API cannot provide safely.
 
-### Phase 3 — AI Content Production
+### Priority 1 — Establish a tested baseline
 
-- [ ] Research-assisted article generation.
-- [ ] Topic cluster management.
-- [ ] Internal linking recommendations.
-- [ ] FAQ and structured data recommendations.
-- [ ] Original AI image generation.
-- [ ] Licensed image discovery.
-- [ ] Image compression and WebP conversion.
-- [ ] WordPress media integration.
+- Keep a documented baseline of plugin behavior and security controls; fix concrete security defects before adding new network-facing features.
+- Add focused tests for the existing plugin's draft creation, input validation, and metadata handling using an appropriate WordPress test setup.
+- Decide and document supported PHP and WordPress versions and the minimum local test commands.
 
-### Phase 4 — Backlink Discovery and Outreach
+### Priority 2 — First Python milestone: read-only website SEO auditor
 
-- [ ] Discover relevant travel websites and directories.
-- [ ] Identify tourism agencies and editorial opportunities.
-- [ ] Evaluate website relevance and quality.
-- [ ] Store publicly available business contact information responsibly.
-- [ ] Generate personalized outreach messages.
-- [ ] Track outreach and backlink status.
-- [ ] Require human approval before communications.
+Build a small, testable Python command-line auditor for `rioprivatedriver.com`. Start with a bounded, same-site crawl and a useful prioritized report, rather than scaffolding every proposed module. The first release should:
 
-### Phase 5 — Monitoring and AI Visibility
+- Respect `robots.txt`, avoid authenticated or access-controlled areas, use conservative request pacing and timeouts, and enforce a configurable page limit.
+- Inspect fetched pages for measurable technical signals such as HTTP status, title, meta description, canonical URL, headings, indexability directives, and internal links.
+- Label measurements separately from estimates or recommendations; include affected URLs and explain why each finding matters.
+- Produce a stable machine-readable result and a readable report, with severity/priority and evidence for each finding.
+- Test parsing, crawl boundaries, robots behavior, failure cases, and report output using local fixtures; do not make public-network access a test prerequisite.
 
-- [ ] Google Search Console performance analysis.
-- [ ] Google Analytics 4 integration.
-- [ ] Keyword performance history.
-- [ ] AI search visibility monitoring.
-- [ ] Competitor visibility comparisons.
-- [ ] Automated SEO recommendations.
-- [ ] Weekly and monthly reports.
+Keep this first milestone read-only. Do not add AI-generated findings, keyword-volume claims, competitor crawling, or automated remediation until the underlying data and limitations are clear.
 
-### Phase 6 — Dashboard and Automation
+### Priority 3 — Minimal Python foundation and WordPress draft transfer
 
-- [ ] Central web dashboard.
-- [ ] Editorial calendar.
-- [ ] Keyword opportunity dashboard.
-- [ ] Backlink opportunity dashboard.
-- [ ] Scheduled SEO audits.
-- [ ] Automated content recommendations.
-- [ ] Approval-based publishing workflows.
+Add only the structure needed by the auditor and its tests: configuration, logging, a CLI entry point, and clearly separated crawl, audit, and report code. Then add a WordPress REST API client that can transfer approved content as drafts. Verify authentication, error handling, excerpts, and metadata against a test WordPress site. Confirm how the existing custom meta keys will be exposed through REST before changing PHP. Preserve the current plugin workflow during migration.
 
-## Technology Stack
+### Priority 4 — Research and AI capabilities
 
-- Python 3 for the main SEO engine.
-- PHP for WordPress integration.
-- Gemini API and/or OpenAI-compatible AI providers.
-- WordPress REST API.
-- Supabase or SQLite for structured data storage.
-- Google Search Console API.
-- Google Analytics 4 API.
-- GitHub for source control.
-- GitHub Actions for scheduled automation where appropriate.
+Add data-backed integrations in small increments, starting with official Google Search Console data where authorized access is available. Keep measured search data distinct from estimates. Introduce configurable Gemini and OpenAI-compatible providers only for defined, tested tasks such as classification, article planning, writing assistance, evaluation, metadata, FAQs, internal-link suggestions, and outreach drafts. Require source/evidence handling and human review; prompts alone cannot guarantee factual accuracy.
 
-All API providers should be configurable. Avoid unnecessary vendor lock-in.
+### Priority 5 — Opportunity workflows
 
-## Editorial and SEO Policies
+Add competitor/content-gap analysis, image processing, and backlink prospect tracking only when their input sources, licensing, privacy, and rate-limit requirements are defined. Use authorized images and public, permitted website information. Keep outreach as drafts; do not send messages or create links automatically.
 
-The platform must prioritize sustainable SEO practices.
+### Priority 6 — Reporting and controlled automation
 
-- Generate original, useful and factually reviewed content.
-- Do not fabricate prices, business services, testimonials or local information.
-- Cite reliable sources when researching factual claims.
-- Avoid keyword stuffing and mass-produced low-value articles.
-- Do not copy competitors' content.
-- Use only original, licensed or otherwise authorized images.
-- Do not generate artificial backlinks.
-- Do not use link farms, spam comments or automated link exchanges.
-- Do not purchase followed links.
-- Prioritize genuine editorial relationships and relevant partnerships.
-- Require human approval before publishing articles or sending outreach.
+Build recurring reporting and optional dashboard or scheduling features after the audit and data integrations are reliable. Any publishing workflow must default to drafts and require explicit human approval before publication.
 
-Follow Google's applicable Search Essentials and spam policies.
+## Intended architecture
 
-## Security
+Add modules as implemented; this is a direction, not a claim that these directories or features exist today:
 
-- Never commit API keys, passwords or WordPress credentials.
-- Use environment variables or protected configuration.
-- Authenticate WordPress requests securely.
-- Validate and sanitize all incoming data.
-- Implement appropriate permissions and nonce protection for WordPress administrative actions.
-- Log errors without exposing secrets.
-- Include automated tests for critical functionality.
+```text
+rio-organic-seo/
+├── rio-organic-seo.php       # Existing WordPress plugin
+├── seo_engine/
+│   ├── crawler/
+│   ├── auditing/
+│   ├── reporting/
+│   ├── integrations/
+│   └── content/              # Add when needed
+├── tests/
+├── scripts/
+├── requirements.txt
+└── .env.example
+```
 
-## Development Principles
+The Python engine should own crawling, analysis, data integrations, reporting, and AI workflows. WordPress should remain the content-management endpoint for reviewed drafts, metadata, media, and explicitly approved publishing. Add persistent storage only when a specific workflow needs it; choose the simplest suitable option at that point.
 
-1. Inspect existing code before modifying it.
-2. Preserve working functionality.
-3. Build independent, testable modules.
-4. Avoid unnecessary rewrites.
-5. Document all new modules.
-6. Maintain `requirements.txt` and `.env.example`.
-7. Maintain an appropriate `.gitignore`.
-8. Add unit tests.
-9. Prefer free or inexpensive services where practical.
-10. Keep the project modular and extensible.
+## Development and editorial principles
 
-## Long-Term Objective
-
-Build an independent AI-assisted organic growth platform that helps Rio Private Driver attract international customers through Google, relevant travel websites and AI-powered search services.
-
-The goal is not simply to generate more articles or website traffic, but to increase qualified enquiries and actual private transportation bookings.
-
-Project: Rio Organic SEO  
-Website: https://rioprivatedriver.com
+- Inspect existing behavior before changing it, and keep changes incremental.
+- Use official APIs and permitted public data; respect robots directives, access restrictions, rate limits, and terms.
+- Never bypass authentication, access controls, or image licensing.
+- Never fabricate business details, prices, services, testimonials, or research. Clearly identify uncertain or estimated results.
+- Avoid keyword stuffing, copied content, spam outreach, link farms, artificial link networks, mass reciprocal links, and purchased followed links.
+- Keep secrets out of Git and browser-visible code. Require human approval before publishing or contacting prospects.
+- Add tests and update this README with each implemented module; do not document roadmap items as working features.
