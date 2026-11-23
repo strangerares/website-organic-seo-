@@ -1,12 +1,67 @@
 # Rio Organic SEO
 
-Rio Organic SEO is a small WordPress plugin MVP for preparing AI-assisted article and outreach drafts for [Rio Private Driver](https://rioprivatedriver.com). The repository currently contains the plugin and this README; the planned Python SEO engine has not been started.
+Rio Organic SEO is a small WordPress plugin MVP for preparing AI-assisted article and outreach drafts for [Rio Private Driver](https://rioprivatedriver.com). It now also includes a separate Python SEO engine for read-only website audits.
+
+## Python website SEO auditor
+
+The `seo_engine` package crawls public HTML pages, checks robots.txt and XML sitemaps, extracts technical SEO signals, classifies findings, and writes timestamped HTML, JSON, and CSV reports. It does not claim that any page is indexed by Google.
+
+### Install
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+```
+
+### Run an audit
+
+```bash
+python main.py --url https://rioprivatedriver.com --max-pages 100
+python main.py --url https://example.com --max-pages 50 --delay 1.5 --timeout 20 --output reports
+```
+
+- `--url` is required and must be an absolute HTTP or HTTPS URL.
+- `--max-pages` defaults to `100` pages.
+- `--delay` defaults to `1.0` second between page requests.
+- `--timeout` defaults to `15` seconds.
+- `--output` defaults to `reports`.
+
+Reports are written to `reports/<UTC timestamp>-<host>/` as `audit.html`, `audit.json`, and `pages.csv`. Existing audits are not overwritten.
+
+### What is measured
+
+The auditor checks HTTP status and redirects, titles and meta descriptions, headings, canonical tags, robots directives, internal and external links, in-domain broken links, missing image ALT text, image dimensions where declared and image headers where practical, JSON-LD, language, viewport declarations, HTTPS, sitemap and robots.txt behavior, duplicate metadata, and basic URL structure.
+
+The report's health metric is a Rio diagnostic metric: 100 minus weighted finding counts. It is not a Google ranking score and does not establish indexation.
+
+### Known limitations
+
+- No JavaScript-rendered browser crawl is performed; only server HTML returned by HTTP requests is analyzed.
+- Crawl discovery is limited by the max-pages setting and may stop before every in-site link is visited.
+- Internal broken-link detection is strongest for links that the crawler was able to fetch or that returned known HTTP statuses.
+- External links are measured only as links, not fetched as a crawl target.
+- Image file size uses same-domain `HEAD` response headers and may be unavailable.
+- Sitemap URLs are checked and reported for access/domain issues, but this is not a search-index audit.
+- robots.txt parsing follows supported standard directives; authentication and access-controlled areas are not accessed.
+
+### Tests
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+Tests use mocked HTTP responses and do not depend on the live website.
+
+### Future integration
+
+The Python engine is intentionally independent of the WordPress plugin. Future modules for keyword research, intent, competitors, AI-assisted research, backlink discovery, analytics, Search Console, AI visibility, and WordPress REST API integration can reuse the crawler, audit result, and report structures. No future integration automatically publishes content or sends outreach.
 
 Generated material is saved for human review. The plugin does not publish articles, send email, fetch prospect websites, or create backlinks automatically.
 
 ## What is implemented
 
-The only application source file is [`rio-organic-seo.php`](./rio-organic-seo.php). It declares plugin version 0.1.0, requires WordPress 6.0 or later and PHP 7.4 or later, and uses WordPress APIs without third-party PHP packages.
+The existing WordPress application source is [`rio-organic-seo.php`](./rio-organic-seo.php). It declares plugin version 0.1.0, requires WordPress 6.0 or later and PHP 7.4 or later, and uses WordPress APIs without third-party PHP packages. The separate Python auditor lives in `seo_engine/`, `main.py`, and `tests/`.
 
 ### Article drafts
 
@@ -50,7 +105,7 @@ The implementation expects an OpenAI-compatible chat-completions response with J
 
 Admin generation actions require the `edit_posts` capability and a WordPress nonce. The post metadata editor checks a nonce and per-post edit permission. Submitted article HTML and metadata are sanitized, and generated content is always saved as a draft. A focused static review of the plugin found no confirmed exploitable vulnerabilities; this is not a substitute for testing in a configured WordPress installation or future security reviews. These controls do not establish that AI-generated claims are true: a human must verify facts, links, and quality before publication.
 
-The current implementation is a single PHP file, with no automated tests or Python application. It has no crawler, robots.txt or sitemap analysis, SEO audit/report, keyword or competitor research, image pipeline, Google API integration, or WordPress REST API connector. AI requests use a synchronous 60-second HTTP request; there is no retry, rate-limit, queue, or audit-log system. API failures are reported in the admin request, but there is no structured operational logging.
+The WordPress plugin remains a single PHP file and has no PHP automated test suite. The first Python auditor now provides crawler, robots.txt and sitemap analysis, SEO audit, and report output, but it does not yet provide keyword or competitor research, an image pipeline, Google API integration, or a WordPress REST API connector. AI requests use a synchronous 60-second HTTP request; there is no retry, rate-limit, queue, or audit-log system. API failures are reported in the admin request, but there is no structured operational logging.
 
 Before extending the plugin or exposing additional interfaces, preserve these checks and review the new code for security regressions.
 
