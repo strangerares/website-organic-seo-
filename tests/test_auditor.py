@@ -87,6 +87,20 @@ class CrawlerTests(unittest.TestCase):
         self.assertEqual(urls.count("https://example.com/"), 1)
         self.assertTrue(all(not url.startswith("https://outside.com") for url in urls))
 
+    def test_media_links_are_not_enqueued_as_pages(self):
+        session = Mock()
+        def get(url, **kwargs):
+            if url.endswith("robots.txt"):
+                return FakeResponse(url, text="User-agent: *\nAllow: /")
+            if url.endswith("sitemap.xml"):
+                return FakeResponse(url, status=404, text="")
+            return FakeResponse(url, text="<html><head><title>Page</title></head><body><a href='/photo.jpg'>Photo</a><a href='/document.pdf'>PDF</a></body></html>")
+        session.get.side_effect = get
+        crawl = Crawler(max_pages=100, delay=0, session=session).crawl("https://example.com")
+        urls = [page["url"] for page in crawl["pages"]]
+        self.assertNotIn("https://example.com/photo.jpg", urls)
+        self.assertNotIn("https://example.com/document.pdf", urls)
+
 
 class AuditAndReportingTests(unittest.TestCase):
     def test_broken_link_and_duplicate_findings(self):

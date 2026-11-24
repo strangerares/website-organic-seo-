@@ -41,12 +41,21 @@ class Crawler:
         queue = deque()
         queued = set()
 
+        resource_extensions = (
+            ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".ico", ".bmp", ".tiff",
+            ".pdf", ".zip", ".mp3", ".mp4", ".avi", ".mov", ".woff", ".woff2", ".ttf",
+        )
+
         def enqueue(url):
             url = absolute_url(start_url, url)
-            if url and same_domain(url, start_url) and url not in queued:
-                if robots.allows(url, self.user_agent):
-                    queued.add(url)
-                    queue.append(url)
+            if not url or not same_domain(url, start_url) or url in queued:
+                return
+            path = url.lower().split("?", 1)[0]
+            if path.endswith(resource_extensions):
+                return
+            if robots.allows(url, self.user_agent):
+                queued.add(url)
+                queue.append(url)
 
         enqueue(start_url)
         for url in all_sitemap_urls:
