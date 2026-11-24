@@ -42,6 +42,10 @@ class TechnicalAudit:
         for sitemap_url in crawl["sitemap_urls"]:
             if not same_domain(sitemap_url, base_url):
                 issues.append(issue("High", "SITEMAP_WRONG_DOMAIN", "A sitemap URL points outside the audited domain.", sitemap_url, "Cross-domain sitemap entries may not be treated as valid by crawlers.", "Remove or move out-of-domain sitemap entries.", "Use only canonical URLs for the audited site in the sitemap."))
+                continue
+            sitemap_status = crawl["status_by_url"].get(sitemap_url)
+            if sitemap_status is not None and sitemap_status >= 400:
+                issues.append(issue("High", "SITEMAP_URL_ERROR", f"A sitemap URL returns HTTP {sitemap_status}.", sitemap_url, "An errored sitemap URL does not provide a useful crawlable public page.", "Remove the URL or restore the destination.", "Fix the server response or redirect obsolete URLs intentionally before keeping them in the sitemap."))
 
         page_results = []
         for page in crawl["pages"]:
@@ -56,6 +60,9 @@ class TechnicalAudit:
                 issues.append(issue("High", "HTTP_ERROR", f"The page returned HTTP {page['status']}.", page["final_url"], "An error response is not a normal indexable page response.", "Restore the page or redirect obsolete URLs intentionally.", "Fix server routing, or use a suitable 301 redirect when replacing a permanent URL."))
             elif 300 <= page["status"] < 400:
                 issues.append(issue("Medium", "REDIRECT_RESPONSE", f"The page returned a redirecting HTTP status ({page['status']}).", page["final_url"], "Redirect chains or unnecessary redirects may waste crawl budget.", "Prefer one direct redirect to the final canonical URL.", "Replace internal redirect targets with their final URLs and remove chains."))
+
+            if page["redirects"]:
+                issues.append(issue("Low", "REDIRECT", f"The URL redirected to {row['url']}.", page["url"], "Redirects can add an extra request but are normal for canonicalization.", "Use a direct canonical URL when practical and avoid redirect chains.", "Update links and sitemap entries to the final URL, and consolidate unnecessary redirect hops."))
 
             if not data["title"]:
                 issues.append(issue("High", "MISSING_TITLE", "The page has no title element.", row["url"], "Titles communicate the page topic to users and crawlers.", "Add a concise, unique, descriptive title.", "Add a <title> element inside <head>."))
