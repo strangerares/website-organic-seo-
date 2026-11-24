@@ -1,6 +1,8 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from seo_engine.backlinks.analyzer import ProspectAnalyzer, classify_category
 from seo_engine.backlinks.database import ProspectDatabase
@@ -66,6 +68,31 @@ class AnalysisAndScoringTests(unittest.TestCase):
         self.assertIn(evaluation["priority"], ("High", "Medium", "Low"))
         self.assertIn("rioprivatedriver.com", evaluation["suggested_target_page"])
         self.assertEqual(classify_category("Rio de Janeiro Brazil travel guide"), "Travel Blog / Tourism Resource")
+
+    def test_ai_evaluation_uses_openai_environment_settings(self):
+        class Response:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {"choices": [{"message": {"content": '{"score": 70}'}}]}
+
+        class Session:
+            def post(self, url, **kwargs):
+                self.request = (url, kwargs)
+                return Response()
+
+        session = Session()
+        with patch.dict(os.environ, {
+            "OPENAI_API_KEY": "test-key",
+            "OPENAI_API_MODEL": "test-model",
+        }, clear=True):
+            result = OpportunityEvaluator(session)._evaluate_with_ai({})
+
+        self.assertEqual(result["score"], 70)
+        _, request = session.request
+        self.assertEqual(request["headers"]["Authorization"], "Bearer test-key")
+        self.assertEqual(request["json"]["model"], "test-model")
 
     def test_inaccessible_response_is_recorded(self):
         class Session:

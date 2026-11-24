@@ -2,7 +2,9 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+import main
 from seo_engine.keywords.database import KeywordDatabase
 from seo_engine.keywords.discovery import import_keyword_csv, make_manual_keyword, seed_keywords
 from seo_engine.keywords.intent import classify_intent, is_long_tail
@@ -70,6 +72,30 @@ class KeywordClassificationTests(unittest.TestCase):
 
 
 class KeywordEvaluationAndReportingTests(unittest.TestCase):
+    def test_ai_expansion_uses_openai_environment_settings(self):
+        class Response:
+            def raise_for_status(self):
+                pass
+
+            def json(self):
+                return {"choices": [{"message": {"content": '{"keywords": []}'}}]}
+
+        class Session:
+            def post(self, url, **kwargs):
+                self.request = (url, kwargs)
+                return Response()
+
+        session = Session()
+        with patch.dict(os.environ, {
+            "OPENAI_API_KEY": "test-key",
+            "OPENAI_API_MODEL": "test-model",
+        }, clear=True):
+            self.assertEqual(KeywordEvaluator(session).ai_expand(["seed"]), [])
+
+        _, request = session.request
+        self.assertEqual(request["headers"]["Authorization"], "Bearer test-key")
+        self.assertEqual(request["json"]["model"], "test-model")
+
     def test_ai_suggestion_has_unavailable_metrics_and_source(self):
         record = ai_suggestion_record({
             "keyword": "Rio airport pickup for cruise passengers",
@@ -98,6 +124,18 @@ class KeywordEvaluationAndReportingTests(unittest.TestCase):
             self.assertIn("Unavailable", csv_path.read_text(encoding="utf-8"))
             self.assertIn("Keyword Research Report", html_path.read_text(encoding="utf-8"))
             db.close()
+
+
+class EnvironmentLoadingTests(unittest.TestCase):
+    def test_cli_loads_project_env_without_overriding_process_environment(self):
+        with patch("main.load_dotenv") as load_dotenv:
+            with self.assertRaises(SystemExit):
+                main.main(["--help"])
+
+        load_dotenv.assert_called_once_with(
+            Path(main.__file__).resolve().parent / ".env",
+            override=False,
+        )
 
 
 if __name__ == "__main__":

@@ -5,6 +5,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from seo_engine.crawler.crawler import Crawler
 from seo_engine.auditor.technical_audit import TechnicalAudit
 from seo_engine.reporting.html_report import write_html_report
@@ -24,6 +26,7 @@ def build_parser():
 
 
 def main(argv=None):
+    load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and argv[0].startswith("keywords-"):
         from seo_engine.keywords.cli import run_keyword_command

@@ -14,6 +14,8 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
+For Python AI features, copy the settings from `.env.example` into the root `.env` file and paste your key as the value of `OPENAI_API_KEY`. The application loads this file without overriding environment variables already set by your shell. `.env` is excluded from Git; do not put credentials in `.env.example`.
+
 ### Run an audit
 
 ```bash
@@ -194,12 +196,11 @@ python3 -m pip install -r requirements.txt
 
 The default database is `backlinks.db`. Use `--db` to select another SQLite file.
 
-AI evaluation is optional. Without configuration, the module uses a transparent rule-based score. To enable an OpenAI-compatible provider:
+AI evaluation is optional. Without configuration, the module uses a transparent rule-based score. Set `OPENAI_API_KEY` and optionally `OPENAI_API_MODEL` in the root `.env` file to enable an OpenAI-compatible provider:
 
 ```bash
-export RIO_SEO_API_KEY="your-key"
-export RIO_SEO_API_MODEL="gpt-4o-mini"
-export RIO_SEO_API_URL="https://api.openai.com/v1/chat/completions"
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_API_MODEL=gpt-4o-mini
 ```
 
 Do not commit API keys. The module never sends outreach emails or modifies WordPress content.
@@ -249,7 +250,7 @@ python main.py keywords-report --output reports/keyword-research.html
 
 ### AI-assisted expansion
 
-AI expansion is optional. It accepts `OPENAI_API_KEY`, `OPENAI_API_MODEL`, and `OPENAI_API_URL`, with backward-compatible `RIO_SEO_*` fallbacks.
+AI expansion is optional. It uses `OPENAI_API_KEY`, `OPENAI_API_MODEL`, and optionally `OPENAI_API_URL` from the process environment or root `.env` file.
 
 ```bash
 export OPENAI_API_KEY="your-key"

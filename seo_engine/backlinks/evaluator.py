@@ -66,11 +66,11 @@ class OpportunityEvaluator:
         }
 
     def _evaluate_with_ai(self, prospect: dict) -> Optional[dict]:
-        api_key = os.getenv("RIO_SEO_API_KEY")
+        api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             return None
-        endpoint = os.getenv("RIO_SEO_API_URL", "https://api.openai.com/v1/chat/completions")
-        model = os.getenv("RIO_SEO_API_MODEL", "gpt-4o-mini")
+        endpoint = os.getenv("OPENAI_API_URL", "https://api.openai.com/v1/chat/completions")
+        model = os.getenv("OPENAI_API_MODEL", "gpt-4o-mini")
         prompt = (
             "Evaluate this prospect for legitimate editorial backlinks to Rio Private Driver. "
             "Score 0-100 and return JSON only with keys score, reasoning, outreach_angle, "

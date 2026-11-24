@@ -38,11 +38,11 @@ class KeywordEvaluator:
         return result
 
     def ai_expand(self, seed_keywords: list[str]) -> list[dict]:
-        api_key = os.getenv("OPENAI_API_KEY") or os.getenv("RIO_SEO_API_KEY")
+        api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             return []
-        endpoint = os.getenv("OPENAI_API_URL", os.getenv("RIO_SEO_API_URL", "https://api.openai.com/v1/chat/completions"))
-        model = os.getenv("OPENAI_API_MODEL", os.getenv("RIO_SEO_API_MODEL", "gpt-4o-mini"))
+        endpoint = os.getenv("OPENAI_API_URL", "https://api.openai.com/v1/chat/completions")
+        model = os.getenv("OPENAI_API_MODEL", "gpt-4o-mini")
         prompt = (
             "Generate SEO keyword suggestions for Rio Private Driver. Return JSON only with key keywords, "
             "an array of objects containing keyword, search_intent, long_tail, cluster, recommended_target_page, "
