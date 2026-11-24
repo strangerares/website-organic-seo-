@@ -177,3 +177,84 @@ The Python engine should own crawling, analysis, data integrations, reporting, a
 - Avoid keyword stuffing, copied content, spam outreach, link farms, artificial link networks, mass reciprocal links, and purchased followed links.
 - Keep secrets out of Git and browser-visible code. Require human approval before publishing or contacting prospects.
 - Add tests and update this README with each implemented module; do not document roadmap items as working features.
+
+## Backlink opportunity finder
+
+The backlink workflow is separate from the website auditor. It uses SQLite and supports CSV/manual prospect discovery, page analysis, optional AI scoring, outreach drafts, exports, and HTML reports.
+
+### Installation
+
+The existing requirements are sufficient:
+
+```bash
+python3 -m pip install -r requirements.txt
+```
+
+### Configuration
+
+The default database is `backlinks.db`. Use `--db` to select another SQLite file.
+
+AI evaluation is optional. Without configuration, the module uses a transparent rule-based score. To enable an OpenAI-compatible provider:
+
+```bash
+export RIO_SEO_API_KEY="your-key"
+export RIO_SEO_API_MODEL="gpt-4o-mini"
+export RIO_SEO_API_URL="https://api.openai.com/v1/chat/completions"
+```
+
+Do not commit API keys. The module never sends outreach emails or modifies WordPress content.
+
+### CSV import
+
+CSV headers may use `page_url`, `url`, or `prospect_url` for the URL and `website_name`, `name`, `source`, or `discovery_source` for optional fields.
+
+```bash
+python main.py backlinks-import-csv prospects.csv
+python main.py backlinks-add "https://example.com/rio-guide" --source "Manual review"
+python main.py backlinks-queries
+python main.py backlinks-analyze --delay 1.5 --timeout 20
+python main.py backlinks-list --status Qualified
+python main.py backlinks-outreach --id 1 --angle resource-page
+python main.py backlinks-status 1 Contacted
+python main.py backlinks-export --output reports/backlink-prospects.csv
+python main.py backlinks-stats
+python main.py backlinks-report --output reports/backlink-opportunities.html
+```
+
+Available outreach angles are `resource-page`, `guest-article`, `transportation`, and `partnership`.
+
+The SQLite database tracks prospect metadata, discovery source, evaluation fields, outreach draft, contact status and dates, response, backlink URL, link status, and analysis errors. Prospect workflow statuses are `New`, `Evaluated`, `Qualified`, `Draft Ready`, `Contacted`, `Replied`, `Link Acquired`, and `Rejected`.
+
+Public page analysis respects `robots.txt`, uses a configurable delay and timeout, and only records publicly published email addresses found in page content.
+
+## Keyword research engine
+
+The keyword module is independent of the technical auditor and backlink database. It uses a separate `keywords.db` SQLite database by default; use `--db` to select another file.
+
+### Import and seed keywords
+
+CSV imports accept `keyword`/`Keyword` and optional `country`, `language`, `search_volume`, `keyword_difficulty`, `cpc`, `competition`, `source`, `date_retrieved`, and `related_keywords` fields. Missing metric values are stored and displayed as `Unavailable`.
+
+```bash
+python main.py keywords-import-csv keywords.csv --source "Provider export"
+python main.py keywords-add "Rio de Janeiro airport transfer"
+python main.py keywords-seeds
+python main.py keywords-analyze
+python main.py keywords-list
+python main.py keywords-export --output keyword-research.csv
+python main.py keywords-report --output reports/keyword-research.html
+```
+
+`keywords-seeds` adds the Phase 2 Rio Private Driver seed set. `keywords-analyze` performs deterministic search-intent classification, long-tail detection, topic clustering, existing-page mapping, missing-page recommendations, and article-opportunity recommendations.
+
+### AI-assisted expansion
+
+AI expansion is optional. It accepts `OPENAI_API_KEY`, `OPENAI_API_MODEL`, and `OPENAI_API_URL`, with backward-compatible `RIO_SEO_*` fallbacks.
+
+```bash
+export OPENAI_API_KEY="your-key"
+export OPENAI_API_MODEL="gpt-4o-mini"
+python main.py keywords-expand
+```
+
+AI expansion labels every returned term as `AI-generated suggestion`. It does not supply or estimate search volume, CPC, keyword difficulty, competition, rankings, or market demand. Search metrics remain `Unavailable` unless an explicitly sourced provider CSV supplies them.

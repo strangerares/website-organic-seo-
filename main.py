@@ -24,6 +24,14 @@ def build_parser():
 
 
 def main(argv=None):
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0].startswith("keywords-"):
+        from seo_engine.keywords.cli import run_keyword_command
+        return run_keyword_command(argv)
+    if argv and argv[0].startswith("backlinks-"):
+        from seo_engine.backlinks.cli import run_backlink_command
+        return run_backlink_command(argv)
+
     args = build_parser().parse_args(argv)
     if args.max_pages < 1:
         print("Error: --max-pages must be at least 1.", file=sys.stderr)
