@@ -1,27 +1,29 @@
+import re
+
+
 def classify_intent(keyword: str) -> str:
-    text = keyword.lower()
-    informational_markers = (
-        "how", "what", "why", "guide", "tips", "best", "things to do",
-        "itinerary", "cost", "safety", "where", "can i", "is ",
-    )
-    navigational_markers = ("rio private driver", "website", "official", "login", "booking")
-    transactional_markers = (
-        "book", "booking", "hire", "reservation", "quote", "price", "cost",
-        "transfer", "transportation", "driver", "private tours", "private tour",
-    )
-    commercial_markers = (
-        "best", "top", "compare", "comparison", "company", "companies",
-        "service", "services", "agency", "provider",
-    )
+    text = " ".join(re.findall(r"[a-z0-9]+", keyword.casefold()))
+    words = set(text.split())
 
     if "rio private driver" in text:
         return "Navigational"
-    if any(marker in text for marker in transactional_markers):
-        return "Transactional"
-    if any(marker in text for marker in commercial_markers):
-        return "Commercial"
-    if any(marker in text for marker in informational_markers):
+    if (
+        text.startswith(("how ", "what ", "why ", "where ", "when ", "who "))
+        or words.intersection({"guide", "guides", "tips", "itinerary", "itineraries", "safety"})
+        or "things to do" in text
+        or text.startswith(("can i ", "is ", "are "))
+    ):
         return "Informational"
+    if words.intersection({
+        "best", "top", "compare", "comparison", "vs", "versus", "company",
+        "companies", "service", "services", "agency", "provider", "providers",
+        "cost", "price", "prices",
+    }):
+        return "Commercial"
+    if words.intersection({"book", "booking", "hire", "reservation", "reservations", "quote", "quotes"}):
+        return "Transactional"
+    if words.intersection({"transfer", "transfers", "transportation", "driver", "drivers", "tour", "tours"}):
+        return "Transactional"
     return "Informational"
 
 

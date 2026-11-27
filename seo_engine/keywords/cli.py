@@ -1,7 +1,10 @@
 import argparse
 import sys
 
+import requests
+
 from .clustering import cluster_keyword
+from ..crawler.crawler import Crawler
 from .database import KeywordDatabase
 from .discovery import import_keyword_csv, make_manual_keyword, seed_keywords
 from .evaluator import KeywordEvaluator, ai_suggestion_record
@@ -30,6 +33,11 @@ def build_keyword_parser():
 
     command = subparsers.add_parser("keywords-analyze", help="Classify, cluster, and map keywords")
     command.add_argument("--db", default="keywords.db")
+    command.add_argument("--crawl", action="store_true", help="Use live pages discovered by the website crawler")
+    command.add_argument("--site-url", default="https://rioprivatedriver.com/", help="Site root for optional live mapping")
+    command.add_argument("--max-pages", type=int, default=50, help="Maximum pages for the optional crawl")
+    command.add_argument("--delay", type=float, default=1.0, help="Seconds between optional crawl requests")
+    command.add_argument("--timeout", type=float, default=15.0, help="Timeout in seconds for optional crawl requests")
 
     command = subparsers.add_parser("keywords-list", help="List keywords")
     command.add_argument("--intent")
@@ -93,11 +101,36 @@ def run_keyword_command(argv):
             return 0
 
         if args.keyword_command == "keywords-analyze":
+            crawled_pages = []
+            if args.crawl:
+                if args.max_pages < 1:
+                    print("Error: --max-pages must be at least 1.", file=sys.stderr)
+                    return 2
+                if args.delay < 0:
+                    print("Error: --delay cannot be negative.", file=sys.stderr)
+                    return 2
+                if args.timeout <= 0:
+                    print("Error: --timeout must be greater than zero.", file=sys.stderr)
+                    return 2
+                try:
+                    crawl = Crawler(
+                        max_pages=args.max_pages,
+                        delay=args.delay,
+                        timeout=args.timeout,
+                    ).crawl(args.site_url)
+                    crawled_pages = crawl["pages"]
+                except (ValueError, requests.RequestException) as exc:
+                    print(f"Warning: live page crawl failed; using standard page mapping: {exc}", file=sys.stderr)
+
             evaluator = KeywordEvaluator()
             for row in database.list_keywords():
                 record = evaluator.enrich(dict(row))
                 cluster = cluster_keyword(record["keyword"])
-                target, missing_page, _ = map_keyword(cluster, record["keyword"])
+                target, missing_page, _ = map_keyword(
+                    cluster,
+                    record["keyword"],
+                    crawled_pages=crawled_pages,
+                )
                 article = recommend_article(cluster, record["keyword"])
                 database.update_keyword(row["id"], {
                     "search_intent": record["search_intent"],

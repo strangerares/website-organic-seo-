@@ -241,12 +241,13 @@ python main.py keywords-import-csv keywords.csv --source "Provider export"
 python main.py keywords-add "Rio de Janeiro airport transfer"
 python main.py keywords-seeds
 python main.py keywords-analyze
+python main.py keywords-analyze --crawl --max-pages 50 --delay 1
 python main.py keywords-list
 python main.py keywords-export --output keyword-research.csv
 python main.py keywords-report --output reports/keyword-research.html
 ```
 
-`keywords-seeds` adds the Phase 2 Rio Private Driver seed set. `keywords-analyze` performs deterministic search-intent classification, long-tail detection, topic clustering, existing-page mapping, missing-page recommendations, and article-opportunity recommendations.
+`keywords-seeds` adds the Phase 2 Rio Private Driver seed set. `keywords-analyze` performs search-intent classification, long-tail detection, topic clustering, existing-page mapping, missing-page recommendations, and article-opportunity recommendations. It uses its existing rule-based mapping by default; add `--crawl` to discover current public pages with the bounded site crawler and match keywords against page titles, headings, descriptions, and URLs. The optional crawl honors the configured `--max-pages`, `--delay`, and `--timeout` limits and falls back to the existing mappings when no relevant live page is found.
 
 ### AI-assisted expansion
 

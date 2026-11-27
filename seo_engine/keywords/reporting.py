@@ -39,7 +39,7 @@ def write_keyword_report(database, path: str):
         return f"<section><h2>{escape(title)}</h2><ul>{items}</ul></section>"
 
     keyword_rows = "".join(
-        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>".format(
+        "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>".format(
             escape(str(row["keyword"])),
             escape(str(row["search_intent"] or "Informational")),
             escape(str(row["topic_cluster"] or "Unclustered")),
@@ -50,6 +50,9 @@ def write_keyword_report(database, path: str):
             escape(str(row["recommended_target_page"] or "Unmapped")),
             escape(str(row["source"])),
             escape(str(row["data_type"])),
+            escape(str(row["opportunity_score"]) if row["opportunity_score"] is not None else "Not scored"),
+            "AI-generated" if row["ai_suggestion"] else "Not AI-generated",
+            escape(str(row["ai_reasoning"] or "")),
         )
         for row in rows
     )
@@ -66,7 +69,8 @@ def write_keyword_report(database, path: str):
     {count_section("Topic clusters", clusters)}
     <section><h2>Missing service pages</h2><ul>{''.join(f'<li>{escape(item)}</li>' for item in missing)}</ul></section>
     <section><h2>Article opportunities</h2><ul>{''.join(f'<li>{escape(item)}</li>' for item in articles)}</ul></section>
-    <section><h2>Keywords</h2><table><thead><tr><th>Keyword</th><th>Intent</th><th>Cluster</th><th>Volume</th><th>Difficulty</th><th>CPC</th><th>Competition</th><th>Target page</th><th>Source</th><th>Data type</th></tr></thead><tbody>{keyword_rows}</tbody></table></section>
+    <p>AI-generated suggestions are ideation, not verified demand. Unavailable metrics are not estimates.</p>
+    <section><h2>Keywords</h2><table><thead><tr><th>Keyword</th><th>Intent</th><th>Cluster</th><th>Volume</th><th>Difficulty</th><th>CPC</th><th>Competition</th><th>Target page</th><th>Source</th><th>Data type</th><th>Opportunity score</th><th>AI provenance</th><th>AI reasoning</th></tr></thead><tbody>{keyword_rows}</tbody></table></section>
     </main></body></html>"""
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(html, encoding="utf-8")

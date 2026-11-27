@@ -1,3 +1,7 @@
+import re
+import unicodedata
+
+
 CLUSTER_RULES = (
     ("GIG Airport", ("gig", "gal. da costa e silva", "galeao", "galeão")),
     ("SDU Airport", ("sdu", "santos dumont")),
@@ -12,10 +16,16 @@ CLUSTER_RULES = (
 )
 
 
+def _normalized_text(value: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", value.casefold())
+    without_accents = "".join(char for char in decomposed if not unicodedata.combining(char))
+    return re.sub(r"[^a-z0-9]+", " ", without_accents).strip()
+
+
 def cluster_keyword(keyword: str) -> str:
-    text = keyword.lower()
+    text = f" {_normalized_text(keyword)} "
     for cluster, markers in CLUSTER_RULES:
-        if any(marker in text for marker in markers):
+        if any(f" {_normalized_text(marker)} " in text for marker in markers):
             return cluster
     return "Rio Private Transportation"
 

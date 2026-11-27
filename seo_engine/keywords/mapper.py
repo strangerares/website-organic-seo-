@@ -1,3 +1,12 @@
+import re
+import unicodedata
+from typing import Optional
+from urllib.parse import urlsplit
+
+from seo_engine.auditor.page_audit import PageAudit
+from seo_engine.utils.url_utils import same_domain
+
+
 PAGE_MAP = (
     ("GIG Airport", "https://rioprivatedriver.com/gig-airport-transfer/", "Create GIG airport transfer landing page"),
     ("SDU Airport", "https://rioprivatedriver.com/sdu-airport-transfer/", "Create SDU airport transfer landing page"),
@@ -12,7 +21,74 @@ PAGE_MAP = (
 )
 
 
-def map_keyword(cluster: str, keyword: str) -> tuple[str, str, str]:
+STOP_WORDS = {"a", "an", "and", "at", "by", "de", "do", "da", "for", "from", "in", "of", "on", "the", "to", "with"}
+
+
+def _tokens(value: str) -> set[str]:
+    decomposed = unicodedata.normalize("NFKD", value.casefold())
+    without_accents = "".join(char for char in decomposed if not unicodedata.combining(char))
+    return {token for token in re.findall(r"[a-z0-9]+", without_accents) if token not in STOP_WORDS}
+
+
+def _live_page_match(keyword: str, pages: list[dict], site_url: str):
+    keyword_tokens = _tokens(keyword)
+    if not keyword_tokens:
+        return None
+
+    candidates = []
+    for page in pages:
+        if page.get("status") is None or page["status"] >= 400:
+            continue
+        final_url = page.get("final_url") or page.get("url", "")
+        if not final_url or not same_domain(final_url, site_url):
+            continue
+
+        audited = PageAudit().audit(page, site_url)
+        canonical = audited["canonical"]
+        if audited["noindex"] or (canonical and not same_domain(canonical, site_url)):
+            continue
+        target_url = canonical or final_url
+        if not same_domain(target_url, site_url):
+            continue
+
+        parts = urlsplit(target_url)
+        fields = (
+            (audited["title"], 4),
+            (" ".join(audited["h1"]), 3),
+            (" ".join(audited["h2"]), 2),
+            (audited["meta_description"], 1),
+            (parts.path.replace("-", " ").replace("/", " "), 2),
+        )
+        field_tokens = [(_tokens(text), weight) for text, weight in fields]
+        matched_weight = sum(
+            max((weight for tokens, weight in field_tokens if token in tokens), default=0)
+            for token in keyword_tokens
+        )
+        matches = sum(
+            any(token in tokens for tokens, _ in field_tokens)
+            for token in keyword_tokens
+        )
+        coverage = matched_weight / (4 * len(keyword_tokens))
+        minimum_matches = min(2, len(keyword_tokens))
+        if matches >= minimum_matches and coverage >= 0.5:
+            candidates.append((coverage, matched_weight, target_url))
+
+    if candidates:
+        return max(candidates)[2]
+    return None
+
+
+def map_keyword(
+    cluster: str,
+    keyword: str,
+    crawled_pages: Optional[list[dict]] = None,
+    site_url: str = "https://rioprivatedriver.com/",
+) -> tuple[str, str, str]:
+    if crawled_pages:
+        live_page = _live_page_match(keyword, crawled_pages, site_url)
+        if live_page:
+            return live_page, "", ""
+
     for rule_cluster, target, missing in PAGE_MAP:
         if cluster == rule_cluster:
             existing = rule_cluster in ("Private Tours", "Airport Transfers", "Rio Transportation")
